@@ -71,7 +71,7 @@ abstract class Feed(spec: FeedSpec) {
             else -> attribute.uuid
         }
         val id = when (attribute.id) {
-            null -> attributeCache.getAttributeId(name, eventId, uuid).toString()
+            null -> attributeCache.getAttributeId(name, eventId, uuid!!).toString()
             else -> attribute.id
         }
         return attribute.copy(uuid = uuid, id = id, eventId = eventId)
@@ -83,7 +83,7 @@ abstract class Feed(spec: FeedSpec) {
             else -> event.uuid
         }
         val id = when (event.id) {
-            null -> attributeCache.getEventId(name, uuid).toString()
+            null -> attributeCache.getEventId(name, uuid!!).toString()
             else -> event.id
         }
         return event.copy(uuid = uuid, id = id)

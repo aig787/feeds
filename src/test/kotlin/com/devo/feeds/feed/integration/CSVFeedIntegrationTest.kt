@@ -1,9 +1,9 @@
 package com.devo.feeds.feed.integration
 
-import com.devo.feeds.MispFeedServer
 import com.devo.feeds.feed.CSVFeed
 import com.devo.feeds.feed.FeedSpec
 import com.devo.feeds.storage.AttributeCache
+import com.devo.feeds.testutils.MispFeedServer
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
 import com.natpryce.hamkrest.greaterThan

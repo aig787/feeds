@@ -1,5 +1,9 @@
 group = "com.devo"
 
+plugins {
+    id("feeds.library-conventions")
+}
+
 repositories {
     mavenCentral()
 }

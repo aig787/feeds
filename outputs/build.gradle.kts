@@ -1,7 +1,7 @@
-group = "com.devo"
+group = "com.devo.feeds.output"
 
-repositories {
-    mavenCentral()
+plugins {
+    id("feeds.library-conventions")
 }
 
 dependencies {

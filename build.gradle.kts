@@ -5,8 +5,8 @@ plugins {
     kotlin("plugin.serialization") version Versions.kotlin
     id(Plugins.dokka) version Versions.kotlin
     id(Plugins.detekt) version Versions.detekt
-    id(Plugins.semverGit) version Versions.semverGit
     id(Plugins.testLogger) version Versions.testLogger
+    id(Plugins.semverGit)
 }
 
 group = "com.devo"
@@ -26,7 +26,7 @@ allprojects {
     }
 
     val defaultVersionFormatter = Transformer<Any, io.wusa.Info> { info ->
-        "${info.version.major}.${info.version.minor}.${info.version.patch}+build.${info.count}.sha.${info.shortCommit}"
+        "${info.version.major}.${info.version.minor}.${info.version.patch}.build.${info.count}.sha.${info.shortCommit}"
     }
 
     semver {
@@ -85,7 +85,6 @@ application {
     mainClass.set("com.devo.feeds.FeedsServiceKt")
 }
 
-
 dependencies {
     implementation(project(":outputs"))
     implementation(project(":data"))
@@ -93,6 +92,7 @@ dependencies {
 
     Libs.logging.forEach { implementation(it) }
     implementation(kotlin("stdlib-jdk8"))
+    implementation(kotlin("bom"))
     implementation(kotlin("reflect"))
     implementation(Libs.kotlinCoroutinesCore)
     implementation(Libs.kotlinSerializationJson)

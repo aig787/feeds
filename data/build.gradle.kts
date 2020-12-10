@@ -1,4 +1,4 @@
-group = "com.devo"
+group = "com.devo.feeds.data"
 
 plugins {
     id("feeds.library-conventions")

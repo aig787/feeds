@@ -1,3 +1,5 @@
+group = "com.devo.feeds"
+
 plugins {
     jacoco
     application
@@ -8,8 +10,6 @@ plugins {
     id(Plugins.testLogger) version Versions.testLogger
     id(Plugins.semverGit)
 }
-
-group = "com.devo"
 
 allprojects {
 
@@ -86,7 +86,7 @@ application {
 }
 
 dependencies {
-    implementation(project(":outputs"))
+    implementation(project(":output"))
     implementation(project(":data"))
     implementation(project(":storage"))
 

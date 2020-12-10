@@ -1,4 +1,8 @@
-group = "com.devo"
+group = "com.devo.feeds.testutils"
+
+plugins {
+    id("feeds.library-conventions")
+}
 
 repositories {
     mavenCentral()

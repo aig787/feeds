@@ -20,7 +20,6 @@ publishing {
                 licenses {
                     license {
                         name.set("MIT")
-                        url.set("https://choosealicense.com/licenses/mit/")
                     }
                 }
             }
@@ -37,11 +36,13 @@ bintray {
     publish = !versionString.endsWith("-SNAPSHOT")
 
     pkg.apply {
+        val githubUrl = "https://github.com/aig787/feeds"
         repo = "feeds"
         name = "${rootProject.name}-${project.name}"
         userOrg = "aig787"
         githubRepo = "aig787/feeds"
-        vcsUrl = "https://github.com/aig787/feeds.git"
+        websiteUrl = githubUrl
+        vcsUrl = "$githubUrl.git"
         setLicenses("MIT")
         version.apply {
             name = versionInfo.toString()

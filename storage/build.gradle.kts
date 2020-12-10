@@ -1,4 +1,8 @@
-group = "com.devo"
+group = "com.devo.feeds.storage"
+
+plugins {
+    id("feeds.library-conventions")
+}
 
 repositories {
     mavenCentral()
@@ -13,3 +17,4 @@ dependencies {
     testImplementation(Libs.kotlinTest)
     testImplementation(Libs.kotlinTestJunit)
 }
+

@@ -1,5 +1,5 @@
 rootProject.name = "feeds"
-include("outputs")
+include("output")
 include("test-utils")
 include("storage")
 include("data")

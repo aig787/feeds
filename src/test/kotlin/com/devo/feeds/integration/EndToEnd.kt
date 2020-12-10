@@ -1,13 +1,13 @@
 package com.devo.feeds.integration
 
 import com.devo.feeds.FeedsService
-import com.devo.feeds.MispFeedServer
-import com.devo.feeds.TestSyslogServer
-import com.devo.feeds.data.misp.DevoMispAttribute
 import com.devo.feeds.data.misp.FeedAndTag
 import com.devo.feeds.data.misp.FeedConfig
 import com.devo.feeds.output.DevoAttributeOutput
+import com.devo.feeds.output.DevoMispAttribute
 import com.devo.feeds.storage.InMemoryAttributeCache
+import com.devo.feeds.testutils.MispFeedServer
+import com.devo.feeds.testutils.TestSyslogServer
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
 import com.typesafe.config.Config
@@ -18,6 +18,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ObsoleteCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
@@ -35,6 +36,8 @@ class EndToEnd {
     private lateinit var mispServer: MispFeedServer
     private lateinit var outputServer: TestSyslogServer
     private lateinit var outputServerJob: Job
+    private lateinit var service: FeedsService
+    private lateinit var serviceJob: Job
     private lateinit var config: Config
 
     private fun resourcePath(resource: String): String =
@@ -44,9 +47,7 @@ class EndToEnd {
     fun setUp() {
         mispServer = MispFeedServer().also { it.start() }
         outputServer = TestSyslogServer()
-        outputServerJob = GlobalScope.launch {
-            outputServer.run()
-        }
+        outputServerJob = outputServer.start()
         val tempPath = Files.createTempFile("feeds-e2e", UUID.randomUUID().toString())
         val mispUrl = "http://localhost:${mispServer.port}"
         config = ConfigFactory.parseMap(
@@ -75,8 +76,10 @@ class EndToEnd {
 
     @After
     fun tearDown() {
+        service.stop()
+        runBlocking { serviceJob.cancelAndJoin() }
         outputServer.stop()
-        runBlocking { outputServerJob.join() }
+        runBlocking { outputServerJob.cancelAndJoin() }
         mispServer.stop()
     }
 
@@ -86,15 +89,16 @@ class EndToEnd {
     @InternalCoroutinesApi
     @Test
     fun `Should run successfully end to end`() {
-        val service = FeedsService(config)
-
-        val serviceJob = GlobalScope.launch {
+        service = FeedsService(config)
+        serviceJob = GlobalScope.launch {
             service.run()
         }
 
         // Assert all events come through
         val expectedAttributeCount = mispServer.feedCount * mispServer.attributesPerEvent * mispServer.manifestEvents
-        await().atMost(Duration.ofSeconds(300)).until { outputServer.receivedMessages.size == expectedAttributeCount }
+        await().atMost(Duration.ofSeconds(30)).untilAsserted {
+            assertThat(outputServer.receivedMessages.size, equalTo(expectedAttributeCount))
+        }
         val byEventId = outputServer.receivedMessages.map { (_, message) ->
             val bodyStart = message.indexOf('{')
             Json.decodeFromString<DevoMispAttribute>(message.substring(bodyStart, message.length))
@@ -121,11 +125,9 @@ class EndToEnd {
                 )
             )
 
-        await().atMost(Duration.ofSeconds(300)).until { outputServer.receivedMessages.size == 750 }
-
-        runBlocking {
-            service.stop()
-            serviceJob.join()
+        val updated = expectedAttributeCount + (mispServer.attributesPerEvent * mispServer.manifestEvents)
+        await().atMost(Duration.ofSeconds(30)).untilAsserted {
+            assertThat(outputServer.receivedMessages.size, equalTo(updated))
         }
     }
 }

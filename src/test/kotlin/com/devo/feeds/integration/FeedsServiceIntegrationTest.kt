@@ -1,7 +1,7 @@
 package com.devo.feeds.integration
 
 import com.devo.feeds.FeedsService
-import com.devo.feeds.MispFeedServer
+import com.devo.feeds.testutils.MispFeedServer
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
 import com.typesafe.config.ConfigFactory

@@ -35,7 +35,7 @@ data class DevoMispAttribute(
     @SerialName("EventTags") val eventTags: List<EventTag> = emptyList()
 )
 
-class DevoAttributeOutput : AttributeOutput {
+open class DevoAttributeOutput : AttributeOutput {
 
     private val log = KotlinLogging.logger { }
     private val tag = "threatintel.misp.attributes"

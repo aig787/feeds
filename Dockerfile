@@ -1,17 +1,21 @@
-FROM openjdk:11-jdk-buster AS build
+FROM adoptopenjdk:11-jdk AS build
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y git tree
 
 WORKDIR build
 # Copy gradle resources
 COPY build.gradle.kts gradle.properties settings.gradle.kts gradlew ./
+RUN mkdir output storage test-utils data
 COPY gradle ./gradle
 COPY buildSrc ./buildSrc
 # Build deps
-RUN ./gradlew build
+RUN ./gradlew build -x test
 # Copy everything else
 COPY . .
 # Build artifact
 RUN ./gradlew distTar
-RUN mv build/distributions/feeds-$(./gradlew showVersion -q -Prelease.quiet | cut -d' ' -f2).tar dist.tar
+RUN ./gradlew :showVersion
+RUN mv build/distributions/feeds-$(./gradlew :showVersion -q -Prelease.quiet | cut -d' ' -f2).tar dist.tar
 
 FROM adoptopenjdk/openjdk11:alpine-jre
 ENV JAVA_OPTS=""

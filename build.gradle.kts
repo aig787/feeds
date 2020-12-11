@@ -34,15 +34,10 @@ allprojects {
         branches {
             branch {
                 regex = "master"
-                incrementer = "MINOR_VERSION_INCREMENTER"
+                incrementer = "PATCH_INCREMENTER"
                 formatter = Transformer<Any, io.wusa.Info> { info ->
                     "${info.version.major}.${info.version.minor}.${info.version.patch}"
                 }
-            }
-            branch {
-                regex = "develop"
-                incrementer = "PATCH_VERSION_INCREMENTER"
-                formatter = defaultVersionFormatter
             }
             branch {
                 regex = ".+"

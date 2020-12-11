@@ -11,13 +11,14 @@ val sourcesJar by tasks.creating(Jar::class) {
     from(sourceSets.getByName("main").allSource)
 }
 
+val versionString = rootProject.version.toString()
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            val versionInfo = (project.version as io.wusa.Info)
             groupId = rootProject.group.toString()
             artifactId = "${rootProject.name}-${project.name}"
-            version = versionInfo.toString()
+            version = versionString
             from(components["java"])
             artifact(sourcesJar)
 
@@ -37,9 +38,7 @@ bintray {
     user = project.findProperty("bintrayUser").toString()
     key = project.findProperty("bintrayKey").toString()
 
-    val versionInfo = (project.version as io.wusa.Info)
-    val versionString = versionInfo.toString()
-    publish = !versionString.endsWith("-SNAPSHOT")
+    publish = true
 
     setPublications("maven")
 
@@ -53,9 +52,9 @@ bintray {
         vcsUrl = "$githubUrl.git"
         setLicenses("MIT")
         version.apply {
-            name = versionInfo.toString()
+            name = versionString
             released = Date().toString()
-            vcsTag = "v${versionInfo.tag}"
+            vcsTag = "v$versionString"
         }
     }
 }

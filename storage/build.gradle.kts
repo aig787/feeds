@@ -9,12 +9,12 @@ repositories {
 }
 
 dependencies {
+    api(Libs.config4k)
+    api(Libs.mapdb)
+
     implementation(kotlin(Libs.kotlinStdLib))
-    implementation(Libs.mapdb)
-    implementation(Libs.config4k)
 
     testImplementation(Libs.hamkrest)
     testImplementation(Libs.kotlinTest)
     testImplementation(Libs.kotlinTestJunit)
 }
-

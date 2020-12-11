@@ -4,6 +4,8 @@ plugins {
     id("feeds.library-conventions")
 }
 
+apply(plugin = Plugins.kotlinSerialization)
+
 repositories {
     mavenCentral()
 }

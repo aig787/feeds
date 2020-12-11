@@ -4,15 +4,17 @@ plugins {
     id("feeds.library-conventions")
 }
 
+apply(plugin = Plugins.kotlinSerialization)
+
 dependencies {
     api(project(":data"))
     api(Libs.cloudbeesSyslog)
     api(Libs.kotlinCoroutinesCore)
+    api(Libs.config4k)
 
     implementation(kotlin(Libs.kotlinStdLib))
     implementation(Libs.kotlinLogging)
     implementation(Libs.kotlinSerializationJson)
-    implementation(Libs.config4k)
 
     testImplementation(project(":test-utils"))
     testImplementation(project(":storage"))

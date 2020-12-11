@@ -42,8 +42,6 @@
     This could be a better solution than over logging.
     -->
     <logger level="INFO" name="com.devo"/>
-    <logger level="INFO" name="org.apache.kafka"/>
-    <logger name="org.testcontainers" level="INFO"/>
     <root level="WARN">
         <!--
         If you want async logging just use ref="ASYNC" instead.

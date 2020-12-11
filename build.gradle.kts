@@ -11,43 +11,42 @@ plugins {
     id(Plugins.semverGit)
 }
 
+val defaultVersionFormatter = Transformer<Any, io.wusa.Info> { info ->
+    "${info.version.major}.${info.version.minor}.${info.version.patch}.build.${info.count}.sha.${info.shortCommit}"
+}
+
+semver {
+    initialVersion = "0.0.0"
+    branches {
+        branch {
+            regex = "master"
+            incrementer = "PATCH_INCREMENTER"
+            formatter = Transformer<Any, io.wusa.Info> { info ->
+                "${info.version.major}.${info.version.minor}.${info.version.patch}"
+            }
+        }
+        branch {
+            regex = ".+"
+            incrementer = "NO_VERSION_INCREMENTER"
+            formatter = defaultVersionFormatter
+        }
+    }
+}
+
+version = semver.info
+
 allprojects {
 
     apply(plugin = Plugins.kotlinJvm)
     apply(plugin = Plugins.jacoco)
     apply(plugin = Plugins.detekt)
-    apply(plugin = Plugins.semverGit)
-    apply(plugin = Plugins.testLogger)
-    apply(plugin = Plugins.kotlinSerialization)
+//    apply(plugin = Plugins.testLogger)
+//    apply(plugin = Plugins.kotlinSerialization)
 
     repositories {
         mavenCentral()
         jcenter()
     }
-
-    val defaultVersionFormatter = Transformer<Any, io.wusa.Info> { info ->
-        "${info.version.major}.${info.version.minor}.${info.version.patch}.build.${info.count}.sha.${info.shortCommit}"
-    }
-
-    semver {
-        initialVersion = "0.0.0"
-        branches {
-            branch {
-                regex = "master"
-                incrementer = "PATCH_INCREMENTER"
-                formatter = Transformer<Any, io.wusa.Info> { info ->
-                    "${info.version.major}.${info.version.minor}.${info.version.patch}"
-                }
-            }
-            branch {
-                regex = ".+"
-                incrementer = "NO_VERSION_INCREMENTER"
-                formatter = defaultVersionFormatter
-            }
-        }
-    }
-
-    version = semver.info
 
     val javaVersion = JavaVersion.VERSION_11.toString()
 

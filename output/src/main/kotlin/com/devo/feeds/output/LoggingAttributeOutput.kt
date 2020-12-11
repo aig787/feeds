@@ -5,7 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 
-class LoggingAttributeOutput : AttributeOutput {
+open class LoggingAttributeOutput : AttributeOutput {
 
     private val log = KotlinLogging.logger { }
 

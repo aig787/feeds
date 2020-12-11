@@ -6,17 +6,23 @@ plugins {
     id("com.jfrog.bintray")
 }
 
+val sourcesJar by tasks.creating(Jar::class) {
+    archiveClassifier.set("sources")
+    from(sourceSets.getByName("main").allSource)
+}
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
             val versionInfo = (project.version as io.wusa.Info)
-            groupId = project.group.toString()
+            groupId = rootProject.group.toString()
             artifactId = "${rootProject.name}-${project.name}"
             version = versionInfo.toString()
             from(components["java"])
+            artifact(sourcesJar)
+
             pom {
                 packaging = "jar"
-                name.set(rootProject.name)
                 licenses {
                     license {
                         name.set("MIT")
@@ -35,6 +41,8 @@ bintray {
     val versionString = versionInfo.toString()
     publish = !versionString.endsWith("-SNAPSHOT")
 
+    setPublications("maven")
+
     pkg.apply {
         val githubUrl = "https://github.com/aig787/feeds"
         repo = "feeds"
@@ -47,7 +55,7 @@ bintray {
         version.apply {
             name = versionInfo.toString()
             released = Date().toString()
-            vcsTag = versionInfo.tag
+            vcsTag = "v${versionInfo.tag}"
         }
     }
 }

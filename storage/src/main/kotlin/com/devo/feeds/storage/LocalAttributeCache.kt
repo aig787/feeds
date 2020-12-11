@@ -67,7 +67,7 @@ abstract class LocalAttributeCache : AttributeCache {
     override fun close() = db.close()
 }
 
-class FilesystemAttributeCache : LocalAttributeCache() {
+open class FilesystemAttributeCache : LocalAttributeCache() {
     override fun getDB(config: Config): DB {
         val path = Paths.get(config.getString("path"))
         if (!path.parent.toFile().exists()) {
@@ -85,7 +85,7 @@ class FilesystemAttributeCache : LocalAttributeCache() {
     )
 }
 
-class InMemoryAttributeCache : LocalAttributeCache() {
+open class InMemoryAttributeCache : LocalAttributeCache() {
     override fun getDB(config: Config): DB = DBMaker.memoryDB().make()
     fun build(): AttributeCache = build(ConfigFactory.empty())
 }

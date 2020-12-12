@@ -18,6 +18,7 @@ RUN ./gradlew :showVersion
 RUN mv build/distributions/feeds-$(./gradlew :showVersion -q -Prelease.quiet | cut -d' ' -f2).tar dist.tar
 
 FROM adoptopenjdk/openjdk11:alpine-jre
+ENV CLASSPATH=""
 ENV JAVA_OPTS=""
 ENV FEEDS_OPTS="-Dconfig.file=/opt/feeds/conf/application.conf"
 

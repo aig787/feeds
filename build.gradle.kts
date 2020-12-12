@@ -1,3 +1,5 @@
+import kotlin.streams.toList
+
 group = "com.devo.feeds"
 
 plugins {
@@ -77,6 +79,15 @@ allprojects {
 
 application {
     mainClass.set("com.devo.feeds.FeedsServiceKt")
+}
+
+tasks.startScripts {
+    doLast {
+        val contents = unixScript.readText()
+        val classpath = contents.split("\n").find { it.startsWith("CLASSPATH") }!!
+        val updatedClasspath = classpath.replace("CLASSPATH=", "CLASSPATH=\$CLASSPATH:")
+        unixScript.writeText(contents.replace(classpath, updatedClasspath))
+    }
 }
 
 dependencies {

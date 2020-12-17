@@ -1,5 +1,3 @@
-import kotlin.streams.toList
-
 group = "com.devo.feeds"
 
 plugins {

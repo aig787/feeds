@@ -5,7 +5,6 @@ import com.natpryce.hamkrest.equalTo
 import org.junit.Before
 import org.junit.Test
 import java.nio.file.Files
-import java.nio.file.Paths
 
 class FilesystemAttributeCacheTest {
 
@@ -13,8 +12,7 @@ class FilesystemAttributeCacheTest {
 
     @Before
     fun setUp() {
-        val directory = Files.createTempDirectory("feeds-test")
-        val path = Paths.get(directory.toString(), "attr-cache")
+        val path = Files.createTempDirectory("feeds-test")
         cache = FilesystemAttributeCache().build(path)
     }
 

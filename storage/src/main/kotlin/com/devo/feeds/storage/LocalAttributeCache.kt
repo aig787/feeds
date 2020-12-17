@@ -7,7 +7,7 @@ import org.mapdb.DB
 import org.mapdb.DBMaker
 import org.mapdb.HTreeMap
 import org.mapdb.Serializer
-import java.nio.file.Files
+import java.io.FileNotFoundException
 import java.nio.file.Path
 import java.nio.file.Paths
 
@@ -70,10 +70,11 @@ abstract class LocalAttributeCache : AttributeCache {
 open class FilesystemAttributeCache : LocalAttributeCache() {
     override fun getDB(config: Config): DB {
         val path = Paths.get(config.getString("path"))
-        if (!path.parent.toFile().exists()) {
-            Files.createDirectories(path.parent)
+        if (!path.toFile().isDirectory) {
+            throw FileNotFoundException("$path must be a directory")
         }
-        return DBMaker.fileDB(path.toString()).checksumHeaderBypass().make()
+        val cachePath = Paths.get(path.toString(), "attribute-cache")
+        return DBMaker.fileDB(cachePath.toString()).checksumHeaderBypass().fileMmapEnableIfSupported().make()
     }
 
     fun build(path: Path): AttributeCache = build(

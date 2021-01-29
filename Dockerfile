@@ -1,4 +1,4 @@
-FROM adoptopenjdk:11-jdk AS build
+FROM adoptopenjdk:15-jdk AS build
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y git tree
 

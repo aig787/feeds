@@ -11,7 +11,7 @@ data class Event(
     @SerialName("orgc_id") val orgcId: String? = null,
     val distribution: String? = null,
     @SerialName("sharing_group_id") val sharingGroupId: String? = null,
-    @SerialName("Tag") val tags: List<Tag> = emptyList(),
+    @SerialName("Tag") val tags: Set<Tag> = emptySet(),
     @SerialName("publish_timestamp") val publishTimestamp: String? = null,
     val timestamp: String? = null,
     val analysis: String? = null,

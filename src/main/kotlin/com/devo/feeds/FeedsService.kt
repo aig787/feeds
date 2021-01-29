@@ -1,7 +1,6 @@
 package com.devo.feeds
 
 import com.devo.feeds.data.misp.FeedAndTag
-import com.devo.feeds.data.misp.FeedConfig
 import com.devo.feeds.feed.CSVFeed
 import com.devo.feeds.feed.Feed
 import com.devo.feeds.feed.FeedException
@@ -17,6 +16,9 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.util.KtorExperimentalAPI
+import java.time.Duration
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.FlowPreview
@@ -38,13 +40,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
-import java.time.Duration
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
 class FeedsService(private val config: Config) {
 
-    data class FeedJob(val name: String, val config: FeedConfig, val job: Job)
+    data class FeedJob(val config: FeedAndTag, val job: Job)
 
     private val log = KotlinLogging.logger { }
     private var running = false
@@ -68,7 +67,7 @@ class FeedsService(private val config: Config) {
     private val feedUpdateInterval = config.getDuration("feeds.feedUpdateInterval")
     private var outputs: List<AttributeOutput> = emptyList()
     private val jobLock = ReentrantLock()
-    private var jobs = mapOf<FeedConfig, FeedJob>()
+    private var jobs = mapOf<FeedAndTag, FeedJob>()
 
     /**
      * Start Feeds process
@@ -146,7 +145,7 @@ class FeedsService(private val config: Config) {
             log.info { "Pulling config from MISP" }
             val fetchedFeeds = getConfiguredFeeds().also {
                 log.info { "Found ${it.size} configured feeds" }
-            }.map { it.feed }.toSet()
+            }.toSet()
             val currentFeeds = jobs.keys
 
             // If new feeds are different than what's running, make changes
@@ -186,7 +185,7 @@ class FeedsService(private val config: Config) {
      */
     private fun startFeeds(fetchedFeeds: List<FeedAndTag>): List<FeedJob> {
         return fetchedFeeds.mapNotNull { feedAndTag ->
-            feedFromConfig(feedAndTag.feed, feedUpdateInterval)
+            feedFromConfig(feedAndTag, feedUpdateInterval)
         }.map { (feedConfig, feed) ->
             feedFlow(feed, feedConfig, feedUpdateInterval)
         }
@@ -200,22 +199,21 @@ class FeedsService(private val config: Config) {
      */
     private fun feedFlow(
         feed: Feed,
-        config: FeedConfig,
+        config: FeedAndTag,
         interval: Duration
     ): FeedJob = FeedJob(
-        name = feed.name,
         config = config,
         job = ticker(interval.toMillis(), 0).receiveAsFlow().cancellable()
             .flatMapMerge {
                 try {
                     feed.run()
                 } catch (fe: FeedException) {
-                    log.error { "Failed to fetch feed ${config.name}: ${fe.message}" }
+                    log.error { "Failed to fetch feed ${config.feed.name}: ${fe.message}" }
                     emptyFlow()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    log.error(e) { "Failed to fetch feed ${config.name}" }
+                    log.error(e) { "Failed to fetch feed ${config.feed.name}" }
                     emptyFlow()
                 }
             }.map { update ->
@@ -224,7 +222,7 @@ class FeedsService(private val config: Config) {
                         val attrs = update.newAttributes
                         log.info {
                             "Marking ${attrs.size} attributes for feed: ${feed.name}," +
-                                "event: ${update.event.uuid} as sent"
+                                    "event: ${update.event.uuid} as sent"
                         }
                         attrs.forEach { attr ->
                             feed.markAttributeSent(update.event.id.toString(), attr.uuid!!)
@@ -238,19 +236,19 @@ class FeedsService(private val config: Config) {
 
     @KtorExperimentalAPI
     @ObsoleteCoroutinesApi
-    private fun feedFromConfig(config: FeedConfig, interval: Duration): Pair<FeedConfig, Feed>? =
-        if (config.enabled) {
-            val feedSpec = FeedSpec(config.name, interval, config.url, attributeCache)
-            when (config.sourceFormat.toLowerCase()) {
+    private fun feedFromConfig(config: FeedAndTag, interval: Duration): Pair<FeedAndTag, Feed>? =
+        if (config.feed.enabled) {
+            val feedSpec = FeedSpec(config.feed.name, interval, config.feed.url, config.tag, attributeCache)
+            when (config.feed.sourceFormat.toLowerCase()) {
                 "misp" -> config to MispFeed(feedSpec, httpClient)
-                "csv" -> config to CSVFeed(feedSpec, config.eventId!!, httpClient)
+                "csv" -> config to CSVFeed(feedSpec, config.feed.eventId!!, httpClient)
                 else -> {
-                    log.info { "Ignoring unsupported feed ${config.name} with type ${config.sourceFormat}" }
+                    log.info { "Ignoring unsupported feed ${config.feed.name} with type ${config.feed.sourceFormat}" }
                     null
                 }
             }
         } else {
-            log.info { "Ignoring disabled feed ${config.name}" }
+            log.info { "Ignoring disabled feed ${config.feed.name}" }
             null
         }
 

@@ -3,8 +3,8 @@ package com.devo.feeds.output
 import com.devo.feeds.data.X509Credentials
 import com.devo.feeds.data.misp.Attribute
 import com.devo.feeds.data.misp.Event
-import com.devo.feeds.data.misp.EventTag
 import com.devo.feeds.data.misp.MispObject
+import com.devo.feeds.data.misp.Tag
 import com.typesafe.config.Config
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
@@ -19,7 +19,7 @@ data class DevoMispAttribute(
     @SerialName("Attribute") val attribute: Attribute,
     @SerialName("Event") val event: Event,
     @SerialName("Object") val mispObject: MispObject? = null,
-    @SerialName("EventTags") val eventTags: List<EventTag> = emptyList()
+    @SerialName("EventTags") val eventTags: Set<Tag> = emptySet()
 )
 
 open class DevoAttributeOutput : SyslogAttributeOutput() {
@@ -56,7 +56,7 @@ open class DevoAttributeOutput : SyslogAttributeOutput() {
         DevoMispAttribute(
             attribute = attr,
             event = eventUpdate.event,
-            eventTags = eventUpdate.event.eventTag
+            eventTags = eventUpdate.event.tags
         )
     }.onEach {
         log.trace { "Created Devo Attribute for event: ${it.event.uuid}, attribute:${it.attribute.uuid}" }

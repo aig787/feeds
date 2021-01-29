@@ -6,6 +6,7 @@ import com.devo.feeds.data.misp.EventResponse
 import com.devo.feeds.data.misp.FeedAndTag
 import com.devo.feeds.data.misp.FeedConfig
 import com.devo.feeds.data.misp.ManifestEvent
+import com.devo.feeds.data.misp.Tag
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
@@ -44,7 +45,8 @@ class MispFeedServer {
                 url = "http://localhost:$port/$id",
                 enabled = true,
                 sourceFormat = "misp"
-            )
+            ),
+            Tag(id = id)
         )
     }
     var manifest = (0 until manifestEvents).map { it.toString() to ManifestEvent() }.toMap()
@@ -62,9 +64,22 @@ class MispFeedServer {
                     else -> {
                         val id = "$feed-$name"
                         val attributes =
-                            (0 until attributesPerEvent).map { Attribute(id = "$id-$it", uuid = "$id-$it") }
+                            (0 until attributesPerEvent).map {
+                                Attribute(
+                                    id = "$id-$it",
+                                    uuid = "$id-$it",
+                                    tags = setOf(Tag(id = "$id-$it"))
+                                )
+                            }
                         val response =
-                            EventResponse(Event(id = id, uuid = id, attributes = attributes))
+                            EventResponse(
+                                Event(
+                                    id = id,
+                                    uuid = id,
+                                    attributes = attributes,
+                                    tags = setOf(Tag(id = id))
+                                )
+                            )
                         call.respondText(Json.encodeToString(response), ContentType.Application.Json)
                     }
                 }

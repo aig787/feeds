@@ -2,17 +2,18 @@ package com.devo.feeds.feed
 
 import com.devo.feeds.data.misp.Attribute
 import com.devo.feeds.data.misp.Event
+import com.devo.feeds.data.misp.Tag
 import com.devo.feeds.output.EventUpdate
 import com.devo.feeds.storage.AttributeCache
 import com.fasterxml.uuid.Generators
+import java.time.Duration
+import java.util.UUID
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import mu.KotlinLogging
-import java.time.Duration
-import java.util.UUID
 
 @ObsoleteCoroutinesApi
 abstract class Feed(spec: FeedSpec) {
@@ -34,12 +35,19 @@ abstract class Feed(spec: FeedSpec) {
 
     private val log = KotlinLogging.logger { }
     private val attributeCache = spec.attributeCache
+    private val withDefaultTag: (Event) -> Event = run {
+        when (spec.defaultTag) {
+            null -> { e -> e }
+            else -> { e -> e.copy(tags = e.tags + spec.defaultTag) }
+        }
+    }
 
     val name = spec.name
     val url = spec.url
 
     suspend fun run(): Flow<EventUpdate> = pull()
         .map { ensureIds(it) }
+        .map { copyTags(withDefaultTag(it)) }
         .onEach { log.trace { "Ensured ids for ${it.uuid}" } }
         .map { it to getNewAttributes(it) }
         .onEach { log.debug { "Found ${it.second.size} new attributes for ${it.first.uuid}" } }
@@ -54,6 +62,15 @@ abstract class Feed(spec: FeedSpec) {
     fun markAttributeSent(eventId: String, uuid: String) {
         attributeCache.markAttributeSent(name, eventId, uuid)
     }
+
+    private fun copyTags(event: Event): Event =
+        if (event.tags.isNotEmpty()) {
+            event.copy(attributes = event.attributes.map { attr ->
+                attr.copy(tags = event.tags + attr.tags)
+            })
+        } else {
+            event
+        }
 
     internal fun ensureIds(event: Event): Event {
         val eventWithIds = ensureEventIDs(event)
@@ -94,6 +111,7 @@ data class FeedSpec(
     val name: String,
     val schedule: Duration,
     val url: String,
+    val defaultTag: Tag?,
     val attributeCache: AttributeCache
 )
 

@@ -2,14 +2,14 @@ package com.devo.feeds.storage
 
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
+import java.io.FileNotFoundException
+import java.nio.file.Path
+import java.nio.file.Paths
 import org.mapdb.Atomic
 import org.mapdb.DB
 import org.mapdb.DBMaker
 import org.mapdb.HTreeMap
 import org.mapdb.Serializer
-import java.io.FileNotFoundException
-import java.nio.file.Path
-import java.nio.file.Paths
 
 abstract class LocalAttributeCache : AttributeCache {
     private lateinit var db: DB
@@ -69,9 +69,11 @@ abstract class LocalAttributeCache : AttributeCache {
 
 open class FilesystemAttributeCache : LocalAttributeCache() {
     override fun getDB(config: Config): DB {
-        val path = Paths.get(config.getString("path"))
-        if (!path.toFile().isDirectory) {
+        val path = Paths.get(config.getString("path")).toFile()
+        if (path.isFile) {
             throw FileNotFoundException("$path must be a directory")
+        } else if (!path.exists()) {
+            path.mkdirs()
         }
         val cachePath = Paths.get(path.toString(), "attribute-cache")
         return DBMaker.fileDB(cachePath.toString()).checksumHeaderBypass().fileMmapEnableIfSupported().make()

@@ -10,14 +10,14 @@ import com.natpryce.hamkrest.greaterThan
 import io.ktor.util.KtorExperimentalAPI
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
+import java.time.Duration
+import java.util.UUID
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.AfterClass
 import org.junit.Before
 import org.junit.Test
-import java.time.Duration
-import java.util.UUID
 
 class CSVFeedIntegrationTest {
 
@@ -49,7 +49,13 @@ class CSVFeedIntegrationTest {
         MockKAnnotations.init(this)
         eventId = UUID.randomUUID().toString()
         feed = CSVFeed(
-            FeedSpec("test", Duration.ofSeconds(30), "http://localhost:${server.port}/attributes.csv", attributeCache),
+            FeedSpec(
+                "test",
+                Duration.ofSeconds(30),
+                "http://localhost:${server.port}/attributes.csv",
+                null,
+                attributeCache
+            ),
             eventId,
         )
     }

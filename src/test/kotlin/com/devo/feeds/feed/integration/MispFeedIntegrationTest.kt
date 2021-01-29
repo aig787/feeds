@@ -10,6 +10,7 @@ import com.natpryce.hamkrest.equalTo
 import io.ktor.util.KtorExperimentalAPI
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
+import java.time.Duration
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -19,7 +20,6 @@ import kotlinx.serialization.json.Json
 import org.junit.AfterClass
 import org.junit.Before
 import org.junit.Test
-import java.time.Duration
 
 class MispFeedIntegrationTest {
     companion object {
@@ -51,6 +51,7 @@ class MispFeedIntegrationTest {
                 "test",
                 Duration.ofSeconds(30),
                 "http://localhost:${server.port}/0",
+                null,
                 attributeCache
             ),
         )

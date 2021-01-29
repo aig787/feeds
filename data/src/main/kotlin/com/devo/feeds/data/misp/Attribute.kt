@@ -24,5 +24,5 @@ data class Attribute(
     @SerialName("first_seen") val firstSeen: Boolean? = null,
     @SerialName("last_seen") val lastSeen: Boolean? = null,
     val type: String? = null,
-    @SerialName("Tag") val tags: List<Tag>? = emptyList()
+    @SerialName("Tag") val tags: Set<Tag> = emptySet()
 )

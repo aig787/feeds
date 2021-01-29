@@ -8,10 +8,10 @@ import com.natpryce.hamkrest.equalTo
 import io.ktor.util.KtorExperimentalAPI
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
+import java.time.Duration
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import org.junit.Before
 import org.junit.Test
-import java.time.Duration
 
 class MispFeedTest {
 
@@ -32,6 +32,7 @@ class MispFeedTest {
                 "test",
                 Duration.ofSeconds(30),
                 "https://www.circl.lu/doc/misp/feed-osint",
+                null,
                 attributeCache
             ),
         )

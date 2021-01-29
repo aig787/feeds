@@ -3,6 +3,7 @@ package com.devo.feeds.integration
 import com.devo.feeds.FeedsService
 import com.devo.feeds.data.misp.FeedAndTag
 import com.devo.feeds.data.misp.FeedConfig
+import com.devo.feeds.data.misp.Tag
 import com.devo.feeds.output.DevoAttributeOutput
 import com.devo.feeds.output.DevoMispAttribute
 import com.devo.feeds.storage.InMemoryAttributeCache
@@ -13,6 +14,9 @@ import com.natpryce.hamkrest.equalTo
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import io.ktor.util.KtorExperimentalAPI
+import java.nio.file.Files
+import java.time.Duration
+import java.util.UUID
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.InternalCoroutinesApi
@@ -27,9 +31,6 @@ import org.awaitility.Awaitility.await
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import java.nio.file.Files
-import java.time.Duration
-import java.util.UUID
 
 class EndToEnd {
 
@@ -104,8 +105,15 @@ class EndToEnd {
             Json.decodeFromString<DevoMispAttribute>(message.substring(bodyStart, message.length))
         }.groupBy { it.event.uuid!! }
         assertThat(byEventId.size, equalTo(mispServer.feedCount * mispServer.manifestEvents))
-        byEventId.forEach { (_, attributes) ->
+        byEventId.forEach { (id, attributes) ->
+            val eventTag = Tag(id = id)
+            val feedTag = Tag(id = id.split("-").first())
             assertThat(attributes.size, equalTo(mispServer.attributesPerEvent))
+            attributes.forEach { attr ->
+                assertThat(attr.eventTags, equalTo(setOf(feedTag, eventTag)))
+                assertThat(attr.event.tags, equalTo(setOf(feedTag, eventTag)))
+                assertThat(attr.attribute.tags, equalTo(setOf(feedTag, eventTag, Tag(id = attr.attribute.id))))
+            }
         }
 
         // Change one feed and add a new one

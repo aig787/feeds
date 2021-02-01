@@ -13,9 +13,9 @@ repositories {
 dependencies {
     implementation(kotlin(Libs.kotlinStdLib))
     implementation(Libs.kotlinSerializationCore)
-    implementation("commons-validator:commons-validator:1.7")
+    implementation(Libs.commonsValidator)
 
     testImplementation(Libs.hamkrest)
-    testImplementation(Libs.kotlinTest)
-    testImplementation(Libs.kotlinTestJunit)
+    testImplementation(Libs.junitJupiterApi)
+    testRuntimeOnly(Libs.junitJupiterEngine)
 }

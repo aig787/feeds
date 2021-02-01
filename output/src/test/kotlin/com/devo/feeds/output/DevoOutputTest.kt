@@ -1,17 +1,14 @@
-package com.devo.feeds.output.unit
+package com.devo.feeds.output
 
+import com.devo.feeds.data.X509Credentials
 import com.devo.feeds.data.misp.Attribute
 import com.devo.feeds.data.misp.Event
-import com.devo.feeds.output.DevoAttributeOutput
-import com.devo.feeds.output.DevoMispAttribute
-import com.devo.feeds.output.EventUpdate
 import com.devo.feeds.storage.AttributeCache
 import com.devo.feeds.storage.InMemoryAttributeCache
 import com.devo.feeds.testutils.TestSyslogServer
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.endsWith
 import com.natpryce.hamkrest.equalTo
-import com.typesafe.config.ConfigFactory
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.runBlocking
@@ -22,34 +19,27 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
-class DevoAttributeOutputTest {
+class DevoOutputTest {
 
     private lateinit var attributeCache: AttributeCache
     private lateinit var server: TestSyslogServer
-    private lateinit var output: DevoAttributeOutput
+    private lateinit var output: DevoOutput
 
     @ObsoleteCoroutinesApi
     @Before
     fun setUp() {
         server = TestSyslogServer()
-        attributeCache = InMemoryAttributeCache().build()
+        attributeCache = InMemoryAttributeCache()
         server.start()
-        output = DevoAttributeOutput().also {
-            it.build(
-                ConfigFactory.parseMap(
-                    mapOf(
-                        "host" to "localhost",
-                        "port" to server.port,
-                        "chain" to server.writeRootCA(),
-                        "keystore" to server.writeKeystore(),
-                        "keystorePass" to "changeit",
-                        "threads" to 2
-                    )
-                )
-            )
-        }
+        val credentials = X509Credentials(
+            server.keystoreBytes.inputStream(),
+            "changeit",
+            mapOf("chain" to server.rootCABytes.inputStream())
+        )
+        output = DevoOutput("localhost", server.port, credentials, 2)
     }
 
+    @ObsoleteCoroutinesApi
     @After
     fun tearDown() {
         attributeCache.close()

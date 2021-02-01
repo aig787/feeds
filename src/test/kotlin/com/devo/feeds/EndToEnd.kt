@@ -1,17 +1,15 @@
-package com.devo.feeds.integration
+package com.devo.feeds
 
-import com.devo.feeds.FeedsService
 import com.devo.feeds.data.misp.FeedAndTag
 import com.devo.feeds.data.misp.FeedConfig
 import com.devo.feeds.data.misp.Tag
-import com.devo.feeds.output.DevoAttributeOutput
 import com.devo.feeds.output.DevoMispAttribute
+import com.devo.feeds.output.DevoOutputFactory
 import com.devo.feeds.storage.InMemoryAttributeCache
 import com.devo.feeds.testutils.MispFeedServer
 import com.devo.feeds.testutils.TestSyslogServer
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
-import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import io.ktor.util.KtorExperimentalAPI
 import java.nio.file.Files
@@ -28,41 +26,28 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.awaitility.Awaitility.await
-import org.junit.After
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@org.junit.jupiter.api.Tag("integration")
 class EndToEnd {
 
-    private lateinit var mispServer: MispFeedServer
-    private lateinit var outputServer: TestSyslogServer
-    private lateinit var outputServerJob: Job
-    private lateinit var service: FeedsService
-    private lateinit var serviceJob: Job
-    private lateinit var config: Config
-
-    private fun resourcePath(resource: String): String =
-        javaClass.classLoader.getResource(resource)!!.path
-
-    @Before
-    fun setUp() {
-        mispServer = MispFeedServer().also { it.start() }
-        outputServer = TestSyslogServer()
-        outputServerJob = outputServer.start()
-        val tempPath = Files.createTempFile("feeds-e2e", UUID.randomUUID().toString())
-        val mispUrl = "http://localhost:${mispServer.port}"
-        config = ConfigFactory.parseMap(
+    class Fixture {
+        val mispServer = MispFeedServer().also { it.start() }
+        val outputServer = TestSyslogServer()
+        private val config = ConfigFactory.parseMap(
             mapOf(
                 "feeds.mispUpdateInterval" to "1 second",
-                "feeds.misp.url" to mispUrl,
+                "feeds.misp.url" to "http://localhost:${mispServer.port}",
                 "feeds.misp.key" to "",
                 "feeds.cache" to mapOf(
                     "class" to InMemoryAttributeCache::class.qualifiedName,
-                    "path" to tempPath.toString()
+                    "path" to Files.createTempFile("feeds-e2e", UUID.randomUUID().toString()).toString()
                 ),
                 "feeds.outputs" to listOf(
                     mapOf(
-                        "class" to DevoAttributeOutput::class.qualifiedName,
+                        "factoryClass" to DevoOutputFactory::class.qualifiedName,
                         "host" to "localhost",
                         "port" to outputServer.port,
                         "chain" to resourcePath("rootCA.crt"),
@@ -73,15 +58,32 @@ class EndToEnd {
                 )
             )
         ).withFallback(ConfigFactory.load())
-    }
 
-    @After
-    fun tearDown() {
-        service.stop()
-        runBlocking { serviceJob.cancelAndJoin() }
-        outputServer.stop()
-        runBlocking { outputServerJob.cancelAndJoin() }
-        mispServer.stop()
+        private val service = FeedsService(config)
+
+        private lateinit var outputServerJob: Job
+        private lateinit var serviceJob: Job
+
+        private fun resourcePath(resource: String): String =
+            javaClass.classLoader.getResource(resource)!!.path
+
+        @KtorExperimentalAPI
+        @ObsoleteCoroutinesApi
+        @FlowPreview
+        fun start() {
+            outputServerJob = outputServer.start()
+            serviceJob = GlobalScope.launch {
+                service.run()
+            }
+        }
+
+        fun stop() {
+            service.stop()
+            runBlocking { serviceJob.cancelAndJoin() }
+            outputServer.stop()
+            runBlocking { outputServerJob.cancelAndJoin() }
+            mispServer.stop()
+        }
     }
 
     @ObsoleteCoroutinesApi
@@ -90,25 +92,24 @@ class EndToEnd {
     @InternalCoroutinesApi
     @Test
     fun `Should run successfully end to end`() {
-        service = FeedsService(config)
-        serviceJob = GlobalScope.launch {
-            service.run()
-        }
+        val f = Fixture()
+        f.start()
 
         // Assert all events come through
-        val expectedAttributeCount = mispServer.feedCount * mispServer.attributesPerEvent * mispServer.manifestEvents
+        val expectedAttributeCount =
+            f.mispServer.feedCount * f.mispServer.attributesPerEvent * f.mispServer.manifestEvents
         await().atMost(Duration.ofSeconds(30)).untilAsserted {
-            assertThat(outputServer.receivedMessages.size, equalTo(expectedAttributeCount))
+            assertThat(f.outputServer.receivedMessages.size, equalTo(expectedAttributeCount))
         }
-        val byEventId = outputServer.receivedMessages.map { (_, message) ->
+        val byEventId = f.outputServer.receivedMessages.map { (_, message) ->
             val bodyStart = message.indexOf('{')
             Json.decodeFromString<DevoMispAttribute>(message.substring(bodyStart, message.length))
         }.groupBy { it.event.uuid!! }
-        assertThat(byEventId.size, equalTo(mispServer.feedCount * mispServer.manifestEvents))
+        assertThat(byEventId.size, equalTo(f.mispServer.feedCount * f.mispServer.manifestEvents))
         byEventId.forEach { (id, attributes) ->
             val eventTag = Tag(id = id)
             val feedTag = Tag(id = id.split("-").first())
-            assertThat(attributes.size, equalTo(mispServer.attributesPerEvent))
+            assertThat(attributes.size, equalTo(f.mispServer.attributesPerEvent))
             attributes.forEach { attr ->
                 assertThat(attr.eventTags, equalTo(setOf(feedTag, eventTag)))
                 assertThat(attr.event.tags, equalTo(setOf(feedTag, eventTag)))
@@ -117,25 +118,27 @@ class EndToEnd {
         }
 
         // Change one feed and add a new one
-        val firstFeed = mispServer.feeds.first()
-        mispServer.feeds = listOf(firstFeed.copy(feed = firstFeed.feed.copy(provider = "updated")))
-            .plus(mispServer.feeds.subList(1, mispServer.feeds.size))
+        val firstFeed = f.mispServer.feeds.first()
+        f.mispServer.feeds = listOf(firstFeed.copy(feed = firstFeed.feed.copy(provider = "updated")))
+            .plus(f.mispServer.feeds.subList(1, f.mispServer.feeds.size))
             .plus(
                 FeedAndTag(
                     FeedConfig(
                         id = "new",
                         name = "new",
                         provider = "new",
-                        url = "http://localhost:${mispServer.port}/new",
+                        url = "http://localhost:${f.mispServer.port}/new",
                         enabled = true,
                         sourceFormat = "misp"
                     )
                 )
             )
 
-        val updated = expectedAttributeCount + (mispServer.attributesPerEvent * mispServer.manifestEvents)
+        val updated = expectedAttributeCount + (f.mispServer.attributesPerEvent * f.mispServer.manifestEvents)
         await().atMost(Duration.ofSeconds(30)).untilAsserted {
-            assertThat(outputServer.receivedMessages.size, equalTo(updated))
+            assertThat(f.outputServer.receivedMessages.size, equalTo(updated))
         }
+
+        f.stop()
     }
 }

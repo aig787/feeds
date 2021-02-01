@@ -18,21 +18,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 
-open class SyslogAttributeOutput : AttributeOutput {
-
+class SyslogOutputFactory : OutputFactory<SyslogOutput> {
     private val log = KotlinLogging.logger { }
-
-    private lateinit var host: String
-    private lateinit var writeContext: CoroutineContext
-    private lateinit var writeJobs: List<Job>
-    private val messageChannel = Channel<Pair<String, String>>()
-
-    private var port by Delegates.notNull<Int>()
-    protected open lateinit var tags: List<String>
-    protected var credentials: X509Credentials? = null
-
-    @ObsoleteCoroutinesApi
-    override fun build(config: Config): AttributeOutput {
+    override fun fromConfig(config: Config): SyslogOutput {
         val host = config.getString("host")
         val port = config.getInt("port")
         val tags = config.getStringList("tags")
@@ -47,27 +35,28 @@ open class SyslogAttributeOutput : AttributeOutput {
             log.info { "Using plaintext" }
             null
         }
-        return build(host, port, tags, credentials, threads)
+        return SyslogOutput(host, port, tags, credentials, threads)
     }
+}
+
+open class SyslogOutput(
+    private val host: String,
+    private val port: Int,
+    private val tags: List<String>,
+    private val credentials: X509Credentials?,
+    threads: Int
+) : Output {
+
+    private val log = KotlinLogging.logger { }
 
     @ObsoleteCoroutinesApi
-    fun build(
-        host: String,
-        port: Int,
-        tags: List<String>,
-        credentials: X509Credentials?,
-        threads: Int
-    ): SyslogAttributeOutput {
-        this.host = host
-        this.port = port
-        this.credentials = credentials
-        this.tags = tags
-        writeContext = newFixedThreadPoolContext(threads, "syslog-write-context")
-        GlobalScope.launch {
-            writeJobs = (0 until threads).map { launchWriter(it) }
-        }
-        return this
+    private val writeContext = newFixedThreadPoolContext(threads, "syslog-write-context")
+
+    @ObsoleteCoroutinesApi
+    private val writeJobs: List<Job> = (0 until threads).map {
+        GlobalScope.launch { launchWriter(it) }
     }
+    private val messageChannel = Channel<Pair<String, String>>()
 
     private fun TcpSyslogMessageSender.sendMessageWithTag(tag: String, message: String) {
         this.defaultAppName = tag
@@ -79,6 +68,7 @@ open class SyslogAttributeOutput : AttributeOutput {
 
     protected suspend fun submit(feed: String, message: String) = messageChannel.send(feed to message)
 
+    @ObsoleteCoroutinesApi
     private fun CoroutineScope.launchWriter(id: Int) = launch(writeContext) {
         log.info { "Connecting to syslog at $host:$port with writer $id" }
         TcpSyslogMessageSender().apply {
@@ -102,6 +92,7 @@ open class SyslogAttributeOutput : AttributeOutput {
         submit(feed, Json.encodeToString(eventUpdate))
     }
 
+    @ObsoleteCoroutinesApi
     override fun close() {
         runBlocking {
             writeJobs.forEach { it.cancelAndJoin() }

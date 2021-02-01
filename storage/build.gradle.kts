@@ -15,6 +15,8 @@ dependencies {
     implementation(kotlin(Libs.kotlinStdLib))
 
     testImplementation(Libs.hamkrest)
-    testImplementation(Libs.kotlinTest)
-    testImplementation(Libs.kotlinTestJunit)
+    testImplementation(Libs.junitJupiterParams)
+    testImplementation(Libs.junitJupiterApi)
+
+    testRuntimeOnly(Libs.junitJupiterEngine)
 }

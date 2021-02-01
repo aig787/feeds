@@ -27,8 +27,8 @@ class TestSyslogServer(val port: Int = NetworkUtils.findAvailablePort(), val tls
     private var isRunning = false
     private lateinit var serverSocket: ServerSocket
 
-    private val keystoreBytes = javaClass.classLoader.getResourceAsStream("clienta.p12")!!.readAllBytes()
-    private val rootCABytes = javaClass.classLoader.getResourceAsStream("rootCA.crt")!!.readAllBytes()
+    val keystoreBytes = javaClass.classLoader.getResourceAsStream("clienta.p12")!!.readAllBytes()
+    val rootCABytes = javaClass.classLoader.getResourceAsStream("rootCA.crt")!!.readAllBytes()
 
     @Suppress("BlockingMethodInNonBlockingContext")
     fun start() = GlobalScope.launch {

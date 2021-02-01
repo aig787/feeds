@@ -1,10 +1,8 @@
-package com.devo.feeds.feed.unit
+package com.devo.feeds.feed
 
 import com.devo.feeds.data.misp.Attribute
 import com.devo.feeds.data.misp.Event
-import com.devo.feeds.feed.Feed
-import com.devo.feeds.feed.FeedException
-import com.devo.feeds.output.AttributeOutput
+import com.devo.feeds.output.Output
 import com.devo.feeds.storage.AttributeCache
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
@@ -12,38 +10,34 @@ import com.natpryce.hamkrest.isA
 import com.natpryce.hamkrest.isNullOrBlank
 import io.mockk.every
 import io.mockk.mockk
+import java.net.SocketException
+import java.util.UUID
+import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.junit.Before
-import org.junit.Test
-import java.net.SocketException
-import java.util.UUID
-import kotlin.random.Random
-import kotlin.test.assertFailsWith
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.assertThrows
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FeedTest {
-
-    @ObsoleteCoroutinesApi
-    private lateinit var feed: MockFeed
-    private lateinit var cache: AttributeCache
-    private lateinit var output: AttributeOutput
 
     @ObsoleteCoroutinesApi
     private val blankEventUUID = Feed.generateEventUUID(Event()).toString()
 
-    @ObsoleteCoroutinesApi
-    @Before
-    fun setUp() {
-        output = mockk()
-        cache = mockk()
-        feed = MockFeed(cache)
+    class Fixture {
+        val output = mockk<Output>()
+        val cache = mockk<AttributeCache>()
+
+        @ObsoleteCoroutinesApi
+        val feed = MockFeed(cache)
     }
 
     @ObsoleteCoroutinesApi
-    private fun expectCacheLookups(event: Event) {
+    private fun expectCacheLookups(event: Event, cache: AttributeCache, feed: MockFeed) {
         val expectedEventUUID = Feed.generateEventUUID(event).toString()
         every { cache.getEventId(feed.name, expectedEventUUID) } returns 5L
         event.attributes.forEachIndexed { i, attr ->
@@ -55,51 +49,57 @@ class FeedTest {
     @ObsoleteCoroutinesApi
     @Test
     fun `Should add ids to event`() {
+        val f = Fixture()
         val expectedEvent = Event(id = "1", uuid = blankEventUUID)
-        every { cache.getEventId(feed.name, expectedEvent.uuid!!) } returns 1L
-        assertThat(feed.ensureEventIDs(Event()), equalTo(expectedEvent))
+        every { f.cache.getEventId(f.feed.name, expectedEvent.uuid!!) } returns 1L
+        assertThat(f.feed.ensureEventIDs(Event()), equalTo(expectedEvent))
     }
 
     @ObsoleteCoroutinesApi
     @Test
     fun `Should not overwrite existing event ids`() {
+        val f = Fixture()
         val event = Event(id = "2", uuid = "uuid1")
-        assertThat(feed.ensureEventIDs(event), equalTo(event))
+        assertThat(f.feed.ensureEventIDs(event), equalTo(event))
     }
 
     @ObsoleteCoroutinesApi
     @Test
     fun `Should add ids to attribute`() {
+        val f = Fixture()
         val attribute = Attribute()
         val eventId = UUID.randomUUID().toString()
         val expectedAttribute =
             Attribute(eventId = eventId, uuid = Feed.generateAttributeUUID(eventId, attribute).toString(), id = "2")
-        every { cache.getAttributeId(feed.name, eventId, expectedAttribute.uuid!!) } returns 2L
-        assertThat(feed.ensureAttributeIDs(eventId, Attribute()), equalTo(expectedAttribute))
+        every { f.cache.getAttributeId(f.feed.name, eventId, expectedAttribute.uuid!!) } returns 2L
+        assertThat(f.feed.ensureAttributeIDs(eventId, Attribute()), equalTo(expectedAttribute))
     }
 
     @ObsoleteCoroutinesApi
     @Test
     fun `Should not overwrite existing attribute ids`() {
+        val f = Fixture()
         val attribute = Attribute(eventId = "1", uuid = "2", id = "3")
-        assertThat(feed.ensureAttributeIDs("1", attribute), equalTo(attribute))
+        assertThat(f.feed.ensureAttributeIDs("1", attribute), equalTo(attribute))
     }
 
     @ObsoleteCoroutinesApi
     @Test
     fun `Should overwrite eventId in attribute`() {
+        val f = Fixture()
         val eventId = UUID.randomUUID().toString()
         val attribute = Attribute(eventId = "1", uuid = "2", id = "3")
         val expectedAttribute = attribute.copy(eventId = eventId)
-        assertThat(feed.ensureAttributeIDs(eventId, attribute), equalTo(expectedAttribute))
+        assertThat(f.feed.ensureAttributeIDs(eventId, attribute), equalTo(expectedAttribute))
     }
 
     @ObsoleteCoroutinesApi
     @Test
     fun `Should fill event and attribute ids`() {
+        val f = Fixture()
         val event = Event(attributes = (0 until 5).map { Attribute(value = it.toString()) })
-        expectCacheLookups(event)
-        val withIds = feed.ensureIds(event)
+        expectCacheLookups(event, f.cache, f.feed)
+        val withIds = f.feed.ensureIds(event)
         assertThat(withIds.id, equalTo("5"))
         assertThat(withIds.uuid, !isNullOrBlank)
         withIds.attributes.forEachIndexed { i, attr ->
@@ -112,9 +112,10 @@ class FeedTest {
     @ObsoleteCoroutinesApi
     @Test
     fun `Should send event and attributes`() {
-        every { cache.getEventId(feed.name, any()) } returns Random.nextLong()
-        every { cache.getAttributeId(feed.name, any(), any()) } returns Random.nextLong()
-        every { cache.attributeHasSent(feed.name, any(), any()) } returns false
+        val f = Fixture()
+        every { f.cache.getEventId(f.feed.name, any()) } returns Random.nextLong()
+        every { f.cache.getAttributeId(f.feed.name, any(), any()) } returns Random.nextLong()
+        every { f.cache.attributeHasSent(f.feed.name, any(), any()) } returns false
 
         val eventCount = 5
         val attributeCount = 5
@@ -122,9 +123,9 @@ class FeedTest {
             Event(attributes = (0 until attributeCount).map { j -> Attribute(value = (i + j).toString()) })
         }
 
-        feed.setEvents(events)
+        f.feed.setEvents(events)
         runBlocking {
-            val eventUpdates = feed.run().toList()
+            val eventUpdates = f.feed.run().toList()
             assertThat(eventUpdates.size, equalTo(eventCount))
             eventUpdates.forEach { update ->
                 assertThat(update.event.uuid, !isNullOrBlank)
@@ -141,9 +142,10 @@ class FeedTest {
     @ObsoleteCoroutinesApi
     @Test
     fun `Should not send attributes that have already been sent`() {
-        every { cache.getEventId(feed.name, any()) } returns Random.nextLong()
-        every { cache.getAttributeId(feed.name, any(), any()) } returns Random.nextLong()
-        every { cache.attributeHasSent(feed.name, any(), any()) } returns false
+        val f = Fixture()
+        every { f.cache.getEventId(f.feed.name, any()) } returns Random.nextLong()
+        every { f.cache.getAttributeId(f.feed.name, any(), any()) } returns Random.nextLong()
+        every { f.cache.attributeHasSent(f.feed.name, any(), any()) } returns false
 
         val eventCount = 5
         val attributeCount = 10
@@ -161,19 +163,19 @@ class FeedTest {
 
         val duplicateEvent = events[0]
         duplicateEvent.attributes.forEach { attr ->
-            every { cache.attributeHasSent(feed.name, duplicateEvent.id!!, attr.uuid!!) } returns true
+            every { f.cache.attributeHasSent(f.feed.name, duplicateEvent.id!!, attr.uuid!!) } returns true
         }
 
         val updatedEvent = events[1]
         updatedEvent.attributes.subList(0, 3).forEach { attr ->
-            every { cache.attributeHasSent(feed.name, updatedEvent.id!!, attr.uuid!!) } returns true
+            every { f.cache.attributeHasSent(f.feed.name, updatedEvent.id!!, attr.uuid!!) } returns true
         }
 
-        feed.setEvents(events)
+        f.feed.setEvents(events)
 
         runBlocking {
             val attributesByEventId =
-                feed.run().toList().map { update -> update.event.id to update.newAttributes }.toMap()
+                f.feed.run().toList().map { update -> update.event.id to update.newAttributes }.toMap()
             assertThat(attributesByEventId.size, equalTo(eventCount - 1))
             assertThat(attributesByEventId.containsKey(duplicateEvent.id), equalTo(false))
             assertThat(attributesByEventId[updatedEvent.id]!!.size, equalTo(attributeCount - 3))
@@ -184,16 +186,16 @@ class FeedTest {
     @Test
     @ExperimentalCoroutinesApi
     fun `Should propagate exception`() {
-        val badFeed = object : MockFeed(cache) {
+        val f = Fixture()
+        val badFeed = object : MockFeed(f.cache) {
             override suspend fun pull(): Flow<Event> {
                 throw FeedException("BAD", SocketException("ALSO BAD"))
             }
         }
-        val exception = assertFailsWith<FeedException> {
-            runBlocking {
-                badFeed.run()
-            }
+        val exception = assertThrows<FeedException> {
+            runBlocking { badFeed.run() }
         }
+
         assertThat(exception.message, equalTo("BAD"))
         assertThat(exception.cause!!, isA<SocketException>())
         assertThat(exception.cause!!.message, equalTo("ALSO BAD"))

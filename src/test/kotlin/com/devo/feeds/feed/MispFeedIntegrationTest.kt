@@ -1,15 +1,11 @@
-package com.devo.feeds.feed.integration
+package com.devo.feeds.feed
 
 import com.devo.feeds.data.misp.ManifestEvent
-import com.devo.feeds.feed.FeedSpec
-import com.devo.feeds.feed.MispFeed
-import com.devo.feeds.storage.AttributeCache
 import com.devo.feeds.testutils.MispFeedServer
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
 import io.ktor.util.KtorExperimentalAPI
-import io.mockk.MockKAnnotations
-import io.mockk.impl.annotations.MockK
+import io.mockk.mockk
 import java.time.Duration
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
@@ -17,42 +13,33 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import org.junit.AfterClass
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Tag("integration")
 class MispFeedIntegrationTest {
-    companion object {
-        private val server = MispFeedServer().also {
-            it.start()
-        }
-
-        @JvmStatic
-        @AfterClass
-        fun tearDownClass() {
-            server.stop()
-        }
+    private val server = MispFeedServer().also {
+        it.start()
     }
 
-    @MockK
-    private lateinit var attributeCache: AttributeCache
+    @AfterAll
+    fun tearDown() {
+        server.stop()
+    }
 
-    @KtorExperimentalAPI
-    @ObsoleteCoroutinesApi
-    private lateinit var feed: MispFeed
-
-    @KtorExperimentalAPI
-    @ObsoleteCoroutinesApi
-    @Before
-    fun setUp() {
-        MockKAnnotations.init(this)
-        feed = MispFeed(
+    class Fixture(mispPort: Int) {
+        @KtorExperimentalAPI
+        @ObsoleteCoroutinesApi
+        val feed = MispFeed(
             FeedSpec(
                 "test",
                 Duration.ofSeconds(30),
-                "http://localhost:${server.port}/0",
+                "http://localhost:$mispPort/0",
                 null,
-                attributeCache
+                mockk()
             ),
         )
     }
@@ -61,8 +48,9 @@ class MispFeedIntegrationTest {
     @ObsoleteCoroutinesApi
     @Test
     fun `Should fetch MISP manifest`() {
+        val f = Fixture(server.port)
         runBlocking {
-            val manifest = feed.fetchManifest()
+            val manifest = f.feed.fetchManifest()
             assertThat(
                 Json.decodeFromString<Map<String, ManifestEvent>>(manifest),
                 equalTo(server.manifest)
@@ -75,8 +63,9 @@ class MispFeedIntegrationTest {
     @KtorExperimentalAPI
     @Test
     fun `Should fetch MISP events`() {
+        val f = Fixture(server.port)
         runBlocking {
-            val events = feed.fetchEvents(setOf("event1", "event2", "event3")).toList()
+            val events = f.feed.fetchEvents(setOf("event1", "event2", "event3")).toList()
             assertThat(events.size, equalTo(3))
         }
     }

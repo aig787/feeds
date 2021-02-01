@@ -1,9 +1,6 @@
 package com.devo.feeds.testutils
 
 import com.devo.feeds.data.X509Credentials
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import mu.KotlinLogging
 import java.io.ByteArrayInputStream
 import java.net.ServerSocket
 import java.net.Socket
@@ -15,6 +12,9 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLException
 import javax.net.ssl.SSLServerSocket
 import javax.net.ssl.SSLSocket
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import mu.KotlinLogging
 
 class TestSyslogServer(val port: Int = NetworkUtils.findAvailablePort(), val tls: Boolean = true) {
 
@@ -51,9 +51,9 @@ class TestSyslogServer(val port: Int = NetworkUtils.findAvailablePort(), val tls
             }
         } catch (se: SocketException) {
             if (se.message?.equals("Socket closed") == true) {
-                log.error(se) { "Test server shut down" }
-            } else {
                 log.info { "Test server shut down" }
+            } else {
+                log.error(se) { "Test server shut down" }
             }
             clientThreads.forEach { it.close() }
         }

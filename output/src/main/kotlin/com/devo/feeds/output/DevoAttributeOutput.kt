@@ -55,7 +55,7 @@ open class DevoAttributeOutput : SyslogAttributeOutput() {
     ): List<DevoMispAttribute> = eventUpdate.newAttributes.map { attr ->
         DevoMispAttribute(
             attribute = attr,
-            event = eventUpdate.event,
+            event = eventUpdate.event.copy(attributes = emptyList()),
             eventTags = eventUpdate.event.tags
         )
     }.onEach {

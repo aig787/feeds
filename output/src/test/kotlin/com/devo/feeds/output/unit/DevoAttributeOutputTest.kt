@@ -82,7 +82,7 @@ class DevoAttributeOutputTest {
             Json.decodeFromString<DevoMispAttribute>(body)
         }.sortedBy { it.attribute.id?.toInt() }
         sorted.forEachIndexed { index, devoMispAttribute ->
-            assertThat(devoMispAttribute.event, equalTo(testEvent))
+            assertThat(devoMispAttribute.event, equalTo(testEvent.copy(attributes = emptyList())))
             assertThat(devoMispAttribute.attribute, equalTo(testEvent.attributes[index]))
         }
     }

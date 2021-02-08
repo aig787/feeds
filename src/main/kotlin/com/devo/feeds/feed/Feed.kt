@@ -1,5 +1,6 @@
 package com.devo.feeds.feed
 
+import com.devo.feeds.data.TypeInference
 import com.devo.feeds.data.misp.Attribute
 import com.devo.feeds.data.misp.Event
 import com.devo.feeds.data.misp.Tag
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 
 @ObsoleteCoroutinesApi
@@ -47,12 +50,14 @@ abstract class Feed(spec: FeedSpec) {
 
     suspend fun run(): Flow<EventUpdate> = pull()
         .map { ensureIds(it) }
+        .map { ensureTypes(it) }
         .map { copyTags(withDefaultTag(it)) }
-        .onEach { log.trace { "Ensured ids for ${it.uuid}" } }
+        .onEach { log.trace { "Ensured ids for ${Json.encodeToString(it.copy(attributes = emptyList()))}" } }
         .map { it to getNewAttributes(it) }
         .onEach { log.debug { "Found ${it.second.size} new attributes for ${it.first.uuid}" } }
         .filterNot { (_, newAttributes) -> newAttributes.isEmpty() }
         .map { (event, attributes) -> EventUpdate(event, attributes) }
+        .onEach { log.debug { "Will send ${Json.encodeToString(it)}" } }
 
     private fun getNewAttributes(event: Event): List<Attribute> =
         event.attributes.filterNot { attr ->
@@ -71,6 +76,12 @@ abstract class Feed(spec: FeedSpec) {
         } else {
             event
         }
+
+    private fun ensureTypes(event: Event): Event =
+        event.copy(attributes = event.attributes.map {
+            val x = it.copy(type = it.type ?: TypeInference.inferType(it.value))
+            x
+        })
 
     internal fun ensureIds(event: Event): Event {
         val eventWithIds = ensureEventIDs(event)

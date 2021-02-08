@@ -3,6 +3,8 @@ package com.devo.feeds.output
 import com.cloudbees.syslog.sender.TcpSyslogMessageSender
 import com.devo.feeds.data.X509Credentials
 import com.typesafe.config.Config
+import kotlin.coroutines.CoroutineContext
+import kotlin.properties.Delegates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -15,8 +17,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
-import kotlin.coroutines.CoroutineContext
-import kotlin.properties.Delegates
 
 open class SyslogAttributeOutput : AttributeOutput {
 
@@ -91,7 +91,6 @@ open class SyslogAttributeOutput : AttributeOutput {
         }.use { sender ->
             for ((feed, msg) in messageChannel) {
                 for (tag in tagsForFeed(feed)) {
-                    log.trace { "Writing tag: $tag, message: $msg" }
                     sender.sendMessageWithTag(tag, msg)
                 }
             }

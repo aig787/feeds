@@ -92,7 +92,7 @@ class FeedsService(private val config: Config) {
 
         log.info { "Starting feed flows" }
         jobLock.withLock {
-            jobs = startFeeds(configuredFeeds).map { it.config to it }.toMap()
+            jobs = startFeeds(configuredFeeds).associateBy { it.config }
         }
         while (running) {
             // Continue joining what's there until marked as stopped
@@ -159,9 +159,9 @@ class FeedsService(private val config: Config) {
                     log.info { "Starting ${newFeeds.size} new or updated feeds" }
                     val newJobs = newFeeds.mapNotNull { feedConfig ->
                         feedFromConfig(feedConfig, feedUpdateInterval)
-                    }.map { (feedConfig, feed) ->
+                    }.associate { (feedConfig, feed) ->
                         feedConfig to feedFlow(feed, feedConfig, feedUpdateInterval)
-                    }.toMap()
+                    }
 
                     // Set jobs to the jobs we know about that didn't change plus the new ones
                     jobs = jobs.minus(oldFeeds.keys).plus(newJobs)
@@ -206,6 +206,7 @@ class FeedsService(private val config: Config) {
         job = ticker(interval.toMillis(), 0).receiveAsFlow().cancellable()
             .flatMapMerge {
                 try {
+                    log.info { "Processing feed ${feed.name}" }
                     feed.run()
                 } catch (fe: FeedException) {
                     log.error { "Failed to fetch feed ${config.feed.name}: ${fe.message}" }
@@ -241,7 +242,7 @@ class FeedsService(private val config: Config) {
             val feedSpec = FeedSpec(config.feed.name, interval, config.feed.url, config.tag, attributeCache)
             when (config.feed.sourceFormat.toLowerCase()) {
                 "misp" -> config to MispFeed(feedSpec, httpClient)
-                "csv" -> config to CSVFeed(feedSpec, config.feed.eventId!!, httpClient)
+                "csv" -> config to CSVFeed.fromConfig(config, feedSpec, httpClient)
                 else -> {
                     log.info { "Ignoring unsupported feed ${config.feed.name} with type ${config.feed.sourceFormat}" }
                     null

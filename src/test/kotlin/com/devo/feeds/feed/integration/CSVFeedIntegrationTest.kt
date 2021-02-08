@@ -56,7 +56,8 @@ class CSVFeedIntegrationTest {
                 null,
                 attributeCache
             ),
-            eventId,
+            null,
+            eventId
         )
     }
 

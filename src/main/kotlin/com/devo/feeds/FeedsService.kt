@@ -194,9 +194,6 @@ class FeedsService(private val config: Config) {
     @FlowPreview
     @ObsoleteCoroutinesApi
     @Suppress("TooGenericExceptionCaught")
-    /**
-     *
-     */
     private fun feedFlow(
         feed: Feed,
         config: FeedAndTag,

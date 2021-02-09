@@ -36,7 +36,7 @@ open class DevoAttributeOutput : SyslogAttributeOutput() {
             config.getString("keystorePass"),
             mapOf("chain" to config.getString("chain"))
         )
-        val threads = config.getInt("threads")
+        val threads = config.getIntOrDefault("threads", 1)
         return build(host, port, credentials, threads)
     }
 

@@ -40,8 +40,6 @@ allprojects {
     apply(plugin = Plugins.kotlinJvm)
     apply(plugin = Plugins.jacoco)
     apply(plugin = Plugins.detekt)
-//    apply(plugin = Plugins.testLogger)
-//    apply(plugin = Plugins.kotlinSerialization)
 
     repositories {
         mavenCentral()

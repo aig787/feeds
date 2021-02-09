@@ -36,7 +36,7 @@ open class SyslogAttributeOutput : AttributeOutput {
         val host = config.getString("host")
         val port = config.getInt("port")
         val tags = config.getStringList("tags")
-        val threads = config.getInt("threads")
+        val threads = config.getIntOrDefault("threads", 1)
         val credentials = if (config.hasPath("keystore") && config.hasPath("keystorePass")) {
             log.info { "Using TLS" }
             val trustedCerts = if (config.hasPath("chain")) {

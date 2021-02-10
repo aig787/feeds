@@ -254,7 +254,7 @@ class FeedsService(private val config: Config) {
 
     private fun getOutputs(): List<Output> =
         config.getConfigList("feeds.outputs").map { outputConfig ->
-            val className = outputConfig.getString("factoryClass")
+            val className = outputConfig.getString("class")
             log.info { "Creating output using factory $className" }
             (Class.forName(className).getConstructor().newInstance() as OutputFactory<*>)
                 .fromConfig(outputConfig)
@@ -274,7 +274,7 @@ class FeedsService(private val config: Config) {
     }
 
     private fun getAttributeCache(): AttributeCache {
-        val className = config.getString("feeds.cache.factoryClass")
+        val className = config.getString("feeds.cache.class")
         log.info { "Creating cache from $className" }
         return (Class.forName(className).getConstructor().newInstance() as AttributeCacheFactory<*>)
             .fromConfig(config.getConfig("feeds.cache"))

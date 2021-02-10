@@ -21,7 +21,7 @@ class KafkaOutputFactory : OutputFactory<KafkaOutput> {
     override fun fromConfig(config: Config): KafkaOutput {
         val eventTopic = config.getString("eventTopic")
         val attributeTopic = config.getString("attributeTopic")
-        val threads = config.getInt("threads")
+        val threads = config.getIntOrDefault("threads", 1)
         val producerConfig = config.getConfig("properties").entrySet().map { (k, v) ->
             k to v.unwrapped().toString()
         }.toMap()

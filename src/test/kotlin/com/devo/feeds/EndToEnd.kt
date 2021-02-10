@@ -5,7 +5,8 @@ import com.devo.feeds.data.misp.FeedConfig
 import com.devo.feeds.data.misp.Tag
 import com.devo.feeds.output.DevoMispAttribute
 import com.devo.feeds.output.DevoOutputFactory
-import com.devo.feeds.storage.InMemoryAttributeCache
+import com.devo.feeds.output.KafkaOutputFactory
+import com.devo.feeds.storage.InMemoryAttributeCacheFactory
 import com.devo.feeds.testutils.MispFeedServer
 import com.devo.feeds.testutils.TestSyslogServer
 import com.natpryce.hamkrest.assertion.assertThat
@@ -25,35 +26,54 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.testcontainers.containers.KafkaContainer
+import org.testcontainers.utility.DockerImageName
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @org.junit.jupiter.api.Tag("integration")
 class EndToEnd {
 
-    class Fixture {
+    private val kafka = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:5.4.3")).also { it.start() }
+
+    class Fixture(bootstrap: String) {
         val mispServer = MispFeedServer().also { it.start() }
         val outputServer = TestSyslogServer()
+        val id = UUID.randomUUID().toString()
+        val eventTopic = "$id-event"
+        val attributeTopic = "$id-attribute"
         private val config = ConfigFactory.parseMap(
             mapOf(
                 "feeds.mispUpdateInterval" to "1 second",
                 "feeds.misp.url" to "http://localhost:${mispServer.port}",
                 "feeds.misp.key" to "",
                 "feeds.cache" to mapOf(
-                    "class" to InMemoryAttributeCache::class.qualifiedName,
+                    "class" to InMemoryAttributeCacheFactory::class.qualifiedName,
                     "path" to Files.createTempFile("feeds-e2e", UUID.randomUUID().toString()).toString()
                 ),
                 "feeds.outputs" to listOf(
                     mapOf(
-                        "factoryClass" to DevoOutputFactory::class.qualifiedName,
+                        "class" to DevoOutputFactory::class.qualifiedName,
                         "host" to "localhost",
                         "port" to outputServer.port,
                         "chain" to resourcePath("rootCA.crt"),
                         "keystore" to resourcePath("clienta.p12"),
                         "keystorePass" to "changeit",
                         "threads" to 1
+                    ),
+                    mapOf(
+                        "class" to KafkaOutputFactory::class.qualifiedName,
+                        "eventTopic" to eventTopic,
+                        "attributeTopic" to attributeTopic,
+                        "properties" to mapOf(
+                            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrap
+                        )
                     )
                 )
             )
@@ -86,16 +106,29 @@ class EndToEnd {
         }
     }
 
-    @ObsoleteCoroutinesApi
-    @FlowPreview
-    @KtorExperimentalAPI
-    @InternalCoroutinesApi
-    @Test
-    fun `Should run successfully end to end`() {
-        val f = Fixture()
-        f.start()
+    private fun assertKafkaContents(f: Fixture) = KafkaConsumer(
+        mapOf(
+            ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.bootstrapServers,
+            ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "earliest",
+            ConsumerConfig.GROUP_ID_CONFIG to f.id
+        ), StringDeserializer(), StringDeserializer()
+    ).use { consumer ->
+        consumer.subscribe(listOf(f.eventTopic, f.attributeTopic))
+        val expectedEvents = (f.mispServer.feedCount + 1) * f.mispServer.manifestEvents
+        val expectedAttributes = expectedEvents * f.mispServer.attributesPerEvent
+        val events = mutableListOf<String>()
+        val attributes = mutableListOf<String>()
+        await().atMost(Duration.ofSeconds(30)).untilAsserted {
+            val records = consumer.poll(Duration.ofSeconds(1))
+            println(records.count())
+            events.addAll(records.records(f.eventTopic).map { it.value() })
+            attributes.addAll(records.records(f.attributeTopic).map { it.value() })
+            assertThat(events.size, equalTo(expectedEvents))
+            assertThat(attributes.size, equalTo(expectedAttributes))
+        }
+    }
 
-        // Assert all events come through
+    private fun assertDevoContents(f: Fixture) {
         val expectedAttributeCount =
             f.mispServer.feedCount * f.mispServer.attributesPerEvent * f.mispServer.manifestEvents
         await().atMost(Duration.ofSeconds(30)).untilAsserted {
@@ -116,6 +149,19 @@ class EndToEnd {
                 assertThat(attr.attribute.tags, equalTo(setOf(feedTag, eventTag, Tag(id = attr.attribute.id))))
             }
         }
+    }
+
+    @ObsoleteCoroutinesApi
+    @FlowPreview
+    @KtorExperimentalAPI
+    @InternalCoroutinesApi
+    @Test
+    fun `Should run successfully end to end`() {
+        val f = Fixture(kafka.bootstrapServers)
+        f.start()
+
+        // Assert all events come through
+        assertDevoContents(f)
 
         // Change one feed and add a new one
         val firstFeed = f.mispServer.feeds.first()
@@ -134,11 +180,13 @@ class EndToEnd {
                 )
             )
 
-        val updated = expectedAttributeCount + (f.mispServer.attributesPerEvent * f.mispServer.manifestEvents)
+        val expectedAfterNewFeed =
+            (f.mispServer.feedCount + 1) * f.mispServer.attributesPerEvent * f.mispServer.manifestEvents
         await().atMost(Duration.ofSeconds(30)).untilAsserted {
-            assertThat(f.outputServer.receivedMessages.size, equalTo(updated))
+            assertThat(f.outputServer.receivedMessages.size, equalTo(expectedAfterNewFeed))
         }
 
+        assertKafkaContents(f)
         f.stop()
     }
 }

@@ -26,6 +26,7 @@ import org.testcontainers.utility.DockerImageName
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Tag("integration")
 class KafkaOutputIntegrationTest {
+
     private val kafka = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:5.4.3")).also { it.start() }
 
     @Test

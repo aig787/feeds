@@ -107,6 +107,8 @@ dependencies {
     testImplementation(Libs.hamkrest)
     testImplementation(Libs.awaitility)
     testImplementation(Libs.mockk)
+    testImplementation(Libs.kafkaTestContainers)
+    testImplementation(Libs.kafkaClient)
     testImplementation(Libs.ktorServerCore)
     testImplementation(Libs.ktorServerNetty)
     testImplementation(Libs.junitJupiterApi)

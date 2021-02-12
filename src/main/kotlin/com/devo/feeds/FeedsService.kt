@@ -6,9 +6,11 @@ import com.devo.feeds.feed.Feed
 import com.devo.feeds.feed.FeedException
 import com.devo.feeds.feed.FeedSpec
 import com.devo.feeds.feed.MispFeed
-import com.devo.feeds.output.AttributeOutput
 import com.devo.feeds.output.EventUpdate
+import com.devo.feeds.output.Output
+import com.devo.feeds.output.OutputFactory
 import com.devo.feeds.storage.AttributeCache
+import com.devo.feeds.storage.AttributeCacheFactory
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import io.ktor.client.HttpClient
@@ -65,7 +67,7 @@ class FeedsService(private val config: Config) {
 
     private val attributeCache = getAttributeCache()
     private val feedUpdateInterval = config.getDuration("feeds.feedUpdateInterval")
-    private var outputs: List<AttributeOutput> = emptyList()
+    private var outputs: List<Output> = emptyList()
     private val jobLock = ReentrantLock()
     private var jobs = mapOf<FeedAndTag, FeedJob>()
 
@@ -250,12 +252,12 @@ class FeedsService(private val config: Config) {
             null
         }
 
-    private fun getOutputs(): List<AttributeOutput> =
+    private fun getOutputs(): List<Output> =
         config.getConfigList("feeds.outputs").map { outputConfig ->
             val className = outputConfig.getString("class")
-            log.info { "Creating output with type $className" }
-            (Class.forName(className).getConstructor().newInstance() as AttributeOutput)
-                .build(outputConfig)
+            log.info { "Creating output using factory $className" }
+            (Class.forName(className).getConstructor().newInstance() as OutputFactory<*>)
+                .fromConfig(outputConfig)
         }
 
     @KtorExperimentalAPI
@@ -273,9 +275,9 @@ class FeedsService(private val config: Config) {
 
     private fun getAttributeCache(): AttributeCache {
         val className = config.getString("feeds.cache.class")
-        log.info { "Using cache $className" }
-        return (Class.forName(className).getConstructor().newInstance() as AttributeCache)
-            .build(config.getConfig("feeds.cache"))
+        log.info { "Creating cache from $className" }
+        return (Class.forName(className).getConstructor().newInstance() as AttributeCacheFactory<*>)
+            .fromConfig(config.getConfig("feeds.cache"))
     }
 }
 

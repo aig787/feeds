@@ -1,8 +1,6 @@
-package com.devo.feeds.feed.unit
+package com.devo.feeds.feed
 
 import com.devo.feeds.data.misp.Event
-import com.devo.feeds.feed.Feed
-import com.devo.feeds.feed.FeedSpec
 import com.devo.feeds.storage.AttributeCache
 import java.time.Duration
 import kotlinx.coroutines.ObsoleteCoroutinesApi

@@ -1,45 +1,29 @@
 package com.devo.feeds.storage
 
 import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
+import java.io.File
 import java.io.FileNotFoundException
-import java.nio.file.Path
 import java.nio.file.Paths
-import org.mapdb.Atomic
 import org.mapdb.DB
 import org.mapdb.DBMaker
-import org.mapdb.HTreeMap
 import org.mapdb.Serializer
 
-abstract class LocalAttributeCache : AttributeCache {
-    private lateinit var db: DB
-    private lateinit var sentAttributes: HTreeMap.KeySet<String>
-    private lateinit var eventIds: HTreeMap<String, Long>
-    private lateinit var attributeIds: HTreeMap<String, Long>
-    private lateinit var attributeCounter: Atomic.Long
-    private lateinit var eventCounter: Atomic.Long
-
-    abstract fun getDB(config: Config): DB
-
-    override fun build(config: Config): AttributeCache {
-        db = getDB(config)
-        sentAttributes = db.hashSet("sent-attributes")
-            .serializer(Serializer.STRING)
-            .createOrOpen()
-        eventIds = db.hashMap("event-ids")
-            .keySerializer(Serializer.STRING)
-            .valueSerializer(Serializer.LONG)
-            .createOrOpen()
-        attributeIds = db.hashMap("attribute-ids")
-            .keySerializer(Serializer.STRING)
-            .valueSerializer(Serializer.LONG)
-            .createOrOpen()
-        attributeCounter = db.atomicLong("attribute-counter")
-            .createOrOpen()
-        eventCounter = db.atomicLong("event-counter")
-            .createOrOpen()
-        return this
-    }
+abstract class LocalAttributeCache(private val db: DB) : AttributeCache {
+    private val sentAttributes = db.hashSet("sent-attributes")
+        .serializer(Serializer.STRING)
+        .createOrOpen()
+    private val eventIds = db.hashMap("event-ids")
+        .keySerializer(Serializer.STRING)
+        .valueSerializer(Serializer.LONG)
+        .createOrOpen()
+    private val attributeIds = db.hashMap("attribute-ids")
+        .keySerializer(Serializer.STRING)
+        .valueSerializer(Serializer.LONG)
+        .createOrOpen()
+    private val attributeCounter = db.atomicLong("attribute-counter")
+        .createOrOpen()
+    private val eventCounter = db.atomicLong("event-counter")
+        .createOrOpen()
 
     private fun attributeKey(feed: String, eventUUID: String, uuid: String): String = "$feed$eventUUID$uuid"
     private fun eventKey(feed: String, uuid: String): String = "$feed$uuid"
@@ -67,8 +51,8 @@ abstract class LocalAttributeCache : AttributeCache {
     override fun close() = db.close()
 }
 
-open class FilesystemAttributeCache : LocalAttributeCache() {
-    override fun getDB(config: Config): DB {
+class FilesystemAttributeCacheFactory : AttributeCacheFactory<FilesystemAttributeCache> {
+    override fun fromConfig(config: Config): FilesystemAttributeCache {
         val path = Paths.get(config.getString("path")).toFile()
         if (path.isFile) {
             throw FileNotFoundException("$path must be a directory")
@@ -76,19 +60,15 @@ open class FilesystemAttributeCache : LocalAttributeCache() {
             path.mkdirs()
         }
         val cachePath = Paths.get(path.toString(), "attribute-cache")
-        return DBMaker.fileDB(cachePath.toString()).checksumHeaderBypass().fileMmapEnableIfSupported().make()
+        return FilesystemAttributeCache(cachePath.toFile())
     }
-
-    fun build(path: Path): AttributeCache = build(
-        ConfigFactory.parseMap(
-            mapOf(
-                "path" to path.toString()
-            )
-        )
-    )
 }
 
-open class InMemoryAttributeCache : LocalAttributeCache() {
-    override fun getDB(config: Config): DB = DBMaker.memoryDB().make()
-    fun build(): AttributeCache = build(ConfigFactory.empty())
+class InMemoryAttributeCacheFactory : AttributeCacheFactory<InMemoryAttributeCache> {
+    override fun fromConfig(config: Config): InMemoryAttributeCache = InMemoryAttributeCache()
 }
+
+open class FilesystemAttributeCache(file: File) :
+    LocalAttributeCache(DBMaker.fileDB(file).checksumHeaderBypass().fileMmapEnableIfSupported().make())
+
+open class InMemoryAttributeCache : LocalAttributeCache(DBMaker.memoryDB().make())

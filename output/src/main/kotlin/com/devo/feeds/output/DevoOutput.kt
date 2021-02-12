@@ -22,13 +22,8 @@ data class DevoMispAttribute(
     @SerialName("EventTags") val eventTags: Set<Tag> = emptySet()
 )
 
-open class DevoAttributeOutput : SyslogAttributeOutput() {
-
-    private val log = KotlinLogging.logger { }
-    override var tags: List<String> = listOf("threatintel.misp.attributes")
-
-    @ObsoleteCoroutinesApi
-    override fun build(config: Config): AttributeOutput {
+class DevoOutputFactory : OutputFactory<DevoOutput> {
+    override fun fromConfig(config: Config): DevoOutput {
         val host = config.getString("host")
         val port = config.getInt("port")
         val credentials = X509Credentials(
@@ -37,12 +32,14 @@ open class DevoAttributeOutput : SyslogAttributeOutput() {
             mapOf("chain" to config.getString("chain"))
         )
         val threads = config.getIntOrDefault("threads", 1)
-        return build(host, port, credentials, threads)
+        return DevoOutput(host, port, credentials, threads)
     }
+}
 
-    @ObsoleteCoroutinesApi
-    fun build(host: String, port: Int, credentials: X509Credentials?, threads: Int): AttributeOutput =
-        build(host, port, tags, credentials, threads)
+open class DevoOutput(host: String, port: Int, credentials: X509Credentials?, threads: Int) :
+    SyslogOutput(host, port, listOf("threatintel.misp.attributes"), credentials, threads) {
+
+    private val log = KotlinLogging.logger { }
 
     @Suppress("BlockingMethodInNonBlockingContext")
     private fun serializeDevoAttribute(attribute: DevoMispAttribute): String {

@@ -69,6 +69,7 @@ allprojects {
     }
 
     tasks.test {
+        useJUnitPlatform()
         finalizedBy(tasks.jacocoTestReport)
     }
 }
@@ -103,11 +104,14 @@ dependencies {
     implementation(Libs.jug)
 
     testImplementation(project(":test-utils"))
-    testImplementation(Libs.kotlinTest)
-    testImplementation(Libs.kotlinTestJunit)
     testImplementation(Libs.hamkrest)
     testImplementation(Libs.awaitility)
     testImplementation(Libs.mockk)
+    testImplementation(Libs.kafkaTestContainers)
+    testImplementation(Libs.kafkaClient)
     testImplementation(Libs.ktorServerCore)
     testImplementation(Libs.ktorServerNetty)
+    testImplementation(Libs.junitJupiterApi)
+
+    testRuntimeOnly(Libs.junitJupiterEngine)
 }

@@ -17,4 +17,7 @@ object Versions {
     const val detekt = "1.14.2"
     const val semverGit = "2.3.0"
     const val testLogger = "2.1.1"
+    const val kafka = "2.7.0"
+    const val junit = "5.5.2"
+    const val commonsValidator = "1.7"
 }

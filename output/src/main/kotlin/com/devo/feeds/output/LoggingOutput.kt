@@ -5,13 +5,13 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 
-open class LoggingAttributeOutput : AttributeOutput {
+class LoggingOutputFactory : OutputFactory<LoggingOutput> {
+    override fun fromConfig(config: Config): LoggingOutput = LoggingOutput()
+}
+
+open class LoggingOutput : Output {
 
     private val log = KotlinLogging.logger { }
-
-    override fun build(config: Config): AttributeOutput {
-        return this
-    }
 
     override suspend fun write(feed: String, eventUpdate: EventUpdate) {
         log.info { "feed: $feed, event: ${Json.encodeToString(eventUpdate)}" }

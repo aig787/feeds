@@ -15,12 +15,14 @@ dependencies {
     implementation(kotlin(Libs.kotlinStdLib))
     implementation(Libs.kotlinLogging)
     implementation(Libs.kotlinSerializationJson)
+    implementation(Libs.kafkaClient)
 
     testImplementation(project(":test-utils"))
     testImplementation(project(":storage"))
     Libs.logging.forEach { testImplementation(it) }
     testImplementation(Libs.hamkrest)
     testImplementation(Libs.awaitility)
-    testImplementation(Libs.kotlinTest)
-    testImplementation(Libs.kotlinTestJunit)
+    testImplementation(Libs.kafkaTestContainers)
+    testImplementation(Libs.junitJupiterApi)
+    testRuntimeOnly(Libs.junitJupiterEngine)
 }
